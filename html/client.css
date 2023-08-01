@@ -1,0 +1,631 @@
+@font-face
+{
+  font-family: seven-segment;
+  src: url(/fonts/seven-segment.ttf);
+}
+
+input[type=text]
+{
+  background-color: white; 
+  color:            black;
+}
+
+/***************************************************
+* Utility classes
+****************************************************
+* First so they can be overridden easily.
+*/
+
+/* -------------------------------------------------
+ * Button
+ * ------------------------------------------------*/
+
+ .btn
+ {
+   font-size:            1.4rem;
+   cursor:               pointer;
+   padding:              2px 6px;
+   border-radius:        6px;
+   border:               none;
+   margin:               2px;
+   background-color:     #3498DB;
+   color:                white;
+ }
+
+ .btn:hover, .btn:focus
+ {
+   background-color:     #2980B9;
+ }
+
+ .btn:disabled, .btn:disabled:hover, .bnt:disabled:focus
+ {
+   color:                darkgray;
+   background-color:     gray;
+   cursor:               not-allowed;
+ }
+
+ .btn-red
+ {
+   background-color:     #ce3939;
+   color:                white;
+ }
+
+ .btn-red:hover, .btn-red:focus
+ {
+   background-color:     #806060;
+ }
+
+ .btn-small
+ {
+   font-size:            0.9rem;
+   padding:              2px 4px;
+   border-radius:        4px;
+   margin:               2px;
+ }
+
+ .btn-dropdown
+ {
+   padding-right:        28px;
+   background:           #3498DB url('/images/dropdown-arrow.png') no-repeat  right  50%;
+ }
+
+ /* -------------------------------------------------
+  * Dropdown Menu (used with btn-drop)
+  * ------------------------------------------------*/
+
+ .dropdown-menu-wrapper
+ {
+   position:             relative;
+   display:              inline-block;
+ }
+
+ .dropdown-menu
+ {
+   display:              none;
+   position:             absolute;
+   min-width:            160px;
+   white-space:          nowrap;
+   font-size:            1.4rem;
+   overflow-y:           auto;
+   box-shadow:           0px 8px 16px 0px rgba(0,0,0,0.2);
+   z-index:              1;
+   cursor:               pointer;
+ }
+
+ .dropdown-menu a
+ {
+   color:                white;
+   background-color:     #3498DB;
+   padding:              2px 6px;
+   text-decoration:      none;
+   display:              block;
+   cursor:               pointer;
+ }
+
+ .dropdown-menu a:hover, .dropdown-menu a:focus
+ {
+   background-color:    darkgray;
+ }
+
+ /* -------------------------------------------------
+  * Modal
+  * ------------------------------------------------*/
+
+ .modal
+ {
+   display:              none;  /* Hidden by default */
+   position:             fixed; /* Stay in place */
+   z-index:              1;     /* Sit on top */
+   left:                 0;
+   top:                  0;
+   width:                100%; /* Full width */
+   height:               100%; /* Full height */
+   overflow:             auto; /* Enable scroll if needed */
+ }
+
+ /* Modal Content/Box */
+ .modal-content
+ {
+   background-color:      darkslategray;
+   margin:                15% auto; /* 15% from the top and centered */
+   padding:               20px;
+   border:                1px solid gray;
+   width:                 50%; /* Could be more or less, depending on screen size */
+ }
+
+ /* The Close Button */
+ .modal-close
+ {
+   color:                 lightgray;
+   font-size:             1.4rem;
+   font-weight:           bold;
+ }
+
+ /* -------------------------------------------------
+  * Table
+  * ------------------------------------------------*/
+
+ .table-fixed-head
+ {
+   margin:                0;
+   padding:               0;
+   overflow-y:            auto;
+ }
+
+ .table-fixed-head thead
+ {
+   position:              sticky;
+   top:                   0;
+   color:                 black;
+   background-color:      #666;
+ }
+
+ .table-fixed-head thead tr
+ {
+   position:              sticky;
+   top:                   0;
+ }
+
+ .tr-light
+ {
+  background-color:      #555;
+ }
+
+ /* -------------------------------------------------
+  * Flexbox
+  * ------------------------------------------------*/
+
+ .row
+ {
+   display:               flex;
+   flex-direction:        row;
+ }
+
+ .row-spread
+ {
+   display:               flex;
+   flex-direction:        row;
+   justify-content:       space-between;
+ }
+
+ .row-reverse
+ {
+   display:               flex;
+   flex-direction:        row-reverse;
+ }
+
+ .col
+ {
+   display:               flex;
+   flex-direction:        column;
+ }
+
+ .col-spread
+ {
+   display:               flex;
+   flex-direction:        column;
+   justify-content:       space-between;
+ }
+
+ .col-fixed
+ {
+  display:               flex;
+  flex-direction:        column;
+  flex-grow:             0;
+  flex-shrink:           0;
+}
+
+ /* -------------------------------------------------
+  * Tabbed View
+  * ------------------------------------------------*/
+
+  .tab
+ {
+   overflow:            hidden;
+   border: 1px inset    darkslategray;
+   background-color:    #444;
+ }
+
+ /* Style the buttons that are used to open the tab content */
+ .tab button
+ {
+   background-color:    inherit;
+   color:               inherit;
+   float:               left;
+   border:              none;
+   outline:             none;
+   cursor:              pointer;
+   padding:             9px 16px;
+   transition:          0.3s;
+   font-size:           1.4rem;
+ }
+
+ /* Change background color of buttons on hover */
+ .tab button:hover
+ {
+   background-color:    gray;
+ }
+
+ /* Create an active/current tablink class */
+ .tab button.active {
+   background-color:    #2980B9;
+   color:               white;
+ }
+
+ /* Style the tab content */
+ .tabcontent
+ {
+   display:             none;
+   padding:             6px 12px;
+   border:              1px solid gray;
+   border-top:          none;
+   height:              100%;
+   overflow:            auto;
+ }
+
+ /* -------------------------------------------------
+  * Miscellaneous
+  * ------------------------------------------------*/
+
+ .down-arrow
+ {
+   border: solid        white;
+   border-width:        0 3px 3px 0;
+   display:             inline-block;
+   padding:             3px;
+   transform:           rotate( 45deg );
+   -webkit-transform:   rotate( 45deg );
+   pointer-events:      none;
+ }
+
+ .right-arrow
+ {
+   border: solid        white;
+   border-width:        0 3px 3px 0;
+   display:             inline-block;
+   padding:             3px;
+   transform:           rotate( -45deg );
+   -webkit-transform:   rotate( -45deg );
+   pointer-events:      none;
+ }
+
+ .scroller
+ {
+   overflow:            auto;
+ }
+
+/***************************************************
+* Main body
+***************************************************/
+
+html
+{
+  font-size:             65%;
+}
+
+body
+{
+  position:              absolute;
+  top:                   0px;
+  left:                  0px;
+  bottom:                0px;
+  right:                 0px;
+  font-size:             1.2rem;
+  background-color:      #444;
+  color:                 lightgray;
+  font-family:           system-ui, 'Arial', 'Helvetica', sans-serif;
+}
+
+#app-title-frame
+{
+  text-align:            center;
+}
+
+#app-title
+{
+  padding-bottom:        8px;
+  margin:                0%;
+  font-size:             1.7rem;
+}
+
+#help-button
+{
+  background-color:      transparent;
+  background-image:      url( '/images/help-icon.png' );
+  background-size:       cover;
+  height:                14px;
+  width:                 14px;
+  margin:                2px;
+  cursor:                pointer;
+  border:                none;
+  float:                 right;
+}
+
+/***************************************************
+* status-area column
+***************************************************/
+
+.status_col
+{
+  flex-basis:           135px;
+  box-sizing:           border-box;
+  margin:               0px 6px 0px 0px;
+}
+
+#choose-port
+{
+  margin:                4px 0px;
+  width:                 100%;
+  background-color:    #3498DB;
+  color:               white;
+  font-size:             1.3rem;
+  border:                0;
+}
+
+.status-box
+{
+  box-sizing:           border-box;
+  margin:                4px 0px;
+  width:                 100%;
+  padding-left:          3px;
+  padding-right:         3px;
+  border:                2px inset darkslategray;
+  text-align:            center;
+  font-size:             1.4rem;
+  font-weight:           normal;
+  background-color:      gray;
+  color:                 black;
+}
+
+.position-box
+{
+  box-sizing:            border-box;
+  margin:                4px 0px;
+  width:                 100%;
+  padding-left:          3px;
+  padding-right:         3px;
+  border:                2px inset darkslategray;
+  background-color:      gray;
+  color:                 black;
+}
+
+.position-title-text
+{
+  float:                 left;
+  text-align:            left;
+  font-family:           'Menlo', 'Monaco', monospaced;
+  font-size:             2rem;
+  font-weight:           bold;
+}
+
+.position-units-text
+{
+  clear:                 left;
+  float:                 left;
+  text-align:            left;
+  font-family:           system-ui, 'Arial', 'Helvetica', sans-serif;
+  font-size:             1rem;
+}
+
+.position-working-text
+{
+  text-align:            right;
+  margin:                0px;
+  font-family:           seven-segment, 'Menlo', 'Monaco', monospaced;
+  font-size:             1.8rem;
+  font-weight:           bold;
+}
+
+.position-machine-text
+{
+  text-align:            right;
+  margin:                0px;
+  font-family:           seven-segment, 'Menlo', 'Monaco', monospaced;
+  font-size:             1.2rem;
+  font-weight:           bold;
+}
+
+.status-btn
+{
+  box-sizing:           border-box;
+  margin:                4px 0px;
+  width:                 100%;
+}
+
+#command-btn
+{
+  margin-top:            7px;
+}
+
+/***************************************************
+* Main Tabs
+***************************************************/
+
+#main-tabs
+{
+  width:                 100%;
+  margin-left:           4px;
+}
+
+/***************************************************
+* Operate Tab
+***************************************************/
+
+#tab-page-operate
+{
+  display:               block;
+}
+
+#console-row
+{
+  height:                200px; 
+  flex-grow:             1;
+}
+
+.console-frame
+{
+  width:                 50%;
+  box-sizing:            border-box;
+  margin:                2px;
+  border:                2px inset #222;
+  padding:               2px
+  background-color:      black;
+}
+
+#console-input
+{
+  width:                 100%;
+  height:                100%;
+  box-sizing:            border-box;
+  background-color:      #222;
+  color:                 lightgray;
+  font-family:           'Menlo', 'Monaco', monospaced;;
+  overflow:              auto;
+  text-align:            left;
+  font-size:             small;
+  resize:                none;
+  border:                none;
+}
+
+#console-display
+{
+  width:                 100%;
+  height:                100%;
+  background-color:      #222;
+  color:                 white;
+  font-family:           'Menlo', 'Monaco', monospaced;;
+  overflow:              auto;
+  text-align:            left;
+  font-size:             x-small;
+}
+
+.sent-command
+{
+  color:                 darkgray;
+}
+
+.immediate-command
+{
+  color:                 lightskyblue;
+}
+
+.resp-ok
+{
+  color:                 green;
+}
+
+.resp-error
+{
+  color:                 orange;
+}
+
+.resp-other
+{
+  color:                 lightgray;
+}
+
+.operate-mode
+{
+  font-size:           1.0rem;
+  padding:             2px 6px 2px 6px;
+  border-radius:       4px;
+  margin:              2px;
+  background-color:    #3498DB;
+  color:               white;
+  border:              0;
+}
+
+#render-area
+{
+  background-color:    white;
+  width:               100%;
+  border: 1px solid    lightgray;
+  margin-right:        1%;
+}
+
+/***************************************************
+* Control Tab
+***************************************************/
+
+.cmd-button
+{
+  width:                135px;
+}
+
+#file-upload
+{
+  display:               none;
+}
+
+
+
+/***************************************************
+* settings-area contents
+***************************************************/
+
+
+/* -------------------------------------------------
+ * Control Tab
+ * -----------------------------------------------*/
+
+ #control-grid
+ {
+  display:               grid;
+  grid-template-columns: 330px 40px 40px 40px;
+  grid-template-rows:    40px 40px 40px 120px auto;
+ }
+
+/* -------------------------------------------------
+ * G-Code Settings
+ * -----------------------------------------------*/
+
+.gcode-setting
+{
+  text-align:            right;
+}
+
+.gcode-setting:read-only
+{
+  text-align:            right;
+  background-color:      transparent;
+  color:                 white;
+  border:                none;
+}
+
+.gcode-origin
+{
+  text-align:            center;
+}
+
+/* -------------------------------------------------
+ * GRBL Settings
+ * -----------------------------------------------*/
+
+#tab-page-grbl-settings
+{
+  height:                100%;
+}
+
+.grbl-setting
+{
+  text-align:            right;
+}
+
+
+.grbl-setting
+{
+  text-align:            right;
+}
+
+.grbl-setting:read-only
+{
+  text-align:            right;
+  background-color:      transparent;
+  color:                 white;
+  border:                none;
+}
+
+.grbl-setting-mask
+{
+  font-size:             x-small;
+}

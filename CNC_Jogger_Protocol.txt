@@ -1,0 +1,62 @@
+
+
+-------------------------
+Grbler -> Jogger Messages
+-------------------------
+
+<origin-id> <x-position> <y-position> <z-position>
+
+  origin-id: '0' - Physical position
+             '1' - G54 offset
+             '2' - G55 offset
+             '3' - G56 offset
+             '4' - G57 offset
+             '5' - G58 offset
+             '6' - G59 offset
+             
+
+
+
+
+
+
+-------------------------
+Jogger Operation
+-------------------------
+
+left button:
+  click - move back one display
+  hold  - return to default display
+
+right button:
+  click - move forward one display
+
+
+displays:
+  <show-position> <move-X> <move-Y> <move-Z>
+
+
+<show-position>
+
+  <current x>
+  <current y>
+  <current z>
+  <origin-id>
+
+        
+        outer-knob:  Select between origin id.
+
+
+<blank>
+<move-%>
+<blank>
+<origin-id>
+
+
+  <current %>
+
+
+        outer-knob:    Move 10    mm
+        inner-knob:    Move  0.01 mm
+        select-button: Update origin register.
+

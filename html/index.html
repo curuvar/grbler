@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="A Node.js based CNC controller for GRBL" />
+    <meta name="author" content="Craig Altenburg" />
+
+    <title>Grbler -- a Web Enabled G-Code Sender for GRBL</title>
+
+    <link rel="apple-touch-icon"      href="/images/apple-touch-icon.png"/>
+    <link rel="icon" type="image/png" href="/images/apple-touch-icon.png"/>
+    <link rel="stylesheet"            href="/client.css" />
+
+    <script src = "/jquery.min.js"></script>
+    <script src = "/socket.io/socket.io.js"></script>
+
+    <script src = "/gcode-viewer/three.min.js"></script>
+    <script src = "/gcode-viewer/TrackballControls.js"></script>
+    <script src = "/gcode-viewer/gcode-parser.js"></script>
+    <script src = "/gcode-viewer/gcode-model.js"></script>
+    <script src = "/gcode-viewer/renderer.js"></script>
+    <script src = "/gcode-viewer/ui.js"></script>
+
+    <script src = "client.js"></script>
+
+  </head>
+  <body>
+    <div class="col">
+
+      <!-- Title bar at top of screen -->
+
+      <div id="app-title-frame">
+        <button type="button" id="help-button" onclick='showModal( "command-help" )'></button>
+        <div id="modal-help" class="modal">
+          <div class="modal-content">
+
+            <p>To send G-Code to the GRBL device, first enter the G-Code
+              into the command box by:</p>
+            <ul>
+              <li>Typing directly in the box.</li>
+              <li>Dragging a .gcode file to the command box.</li>
+              <li>Clicking "Choose File" to choose a file.</li>
+            </ul>
+            <p>Then click the "Send GCode" button to send the G-Code.</p>
+            <p>Alternately, Pick a command from the "Commands" list which will be executed immediately.</p>
+
+            <button class= "modal-close" role="button" onclick='hideModal( "command-help" )'>
+              OK
+            </button>
+          </div>
+        </div>
+
+        <h5 id="app-title">Grbler -- a Web Enabled G-Code Sender for GRBL</h5>
+      </div>
+
+      <!-- main part of screen -->
+
+      <div class="row">
+
+        <!-- status area on the left -->
+
+        <div id="status-area" class="col-fixed status_col">
+          <div id="status-value" class="status-box" >
+            Not Ready
+          </div>
+
+          <div id="queue-status" class="status-box" >
+            Nothing Queued
+          </div>
+
+          <div class="position-box">
+            <div class="position-title-text">X</div>
+            <div id="wX" class="position-working-text">1234.000</div>
+            <div class="position-units-text">mm</div>
+            <div id="mX" class="position-machine-text">1234.000</div>
+          </div>
+
+          <div class="position-box">
+            <div class="position-title-text">Y</div>
+            <div id="wY" class="position-working-text">0.000</div>
+            <div class="position-units-text">mm</div>
+            <div id="mY" class="position-machine-text">0.000</div>
+          </div>
+
+          <div class="position-box">
+            <div class="position-title-text">Z</div>
+            <div id="wZ" class="position-working-text">0.000</div>
+            <div class="position-units-text">mm</div>
+            <div id="mZ" class="position-machine-text">0.000</div>
+          </div>
+
+          <button id="pause-queue-btn" class="btn status-btn" roll="button" >
+            Queue Pause
+          </button>
+
+          <button id="clear-queue-btn" class="btn status-btn" roll="button"  title="Clear g-code queue.">
+            Queue Clear
+          </button>
+
+          <button id="auto-home-btn" class="btn status-btn" roll="button"  title="Send '$H' to auto-home machine.">
+            Auto Home
+          </button>
+
+          <div id="user-buttons">
+          </div>
+
+          <button id="reset-btn" class="btn status-btn btn-red" roll="button"  title="Reset attached GRBL device."">
+            Machine Reset
+          </button>
+
+        </div>
+
+        <!-- Main tabs on the right -->
+
+        <div id="main-tabs">
+          <!-- Tab links -->
+          <div class="tab">
+            <button id="tab-operate" class="tablinks active" >
+              Operate
+            </button>
+            <button id="tab-control" class="tablinks" >
+              Control
+            </button>
+            <button id="tab-gcode-settings" class="tablinks">
+              G-Code Settings
+            </button>
+            <button id="tab-grbl-settings" class="tablinks" >
+              GRBL Settings
+            </button>
+          </div>
+
+          <!-- Tab content -- Operate-->
+
+          <div id="tab-page-operate" class="tabcontent">
+
+            <div id="console-row" class="row">
+              <div class="console-frame">
+                <textarea id="console-input"></textarea>
+              </div>
+
+              <div class="console-frame">
+                <div id="console-display"></div>
+              </div>
+            </div>
+
+            <div id="control-area" class="row-spread">
+
+              <button type="button" id="jscut-btn" class="btn cmd-button" >
+                Run JSCut…
+              </button>
+
+              <button type="button" id="choose-file-btn" class="btn cmd-button" >
+                Choose File…
+              </button>
+
+              <div class="col-spread">
+              <select id="choose-mode" class="operate-mode">
+                <option value="1">Laser Mode</option>
+                <option value="0">Spindle Mode</option>
+              </select>
+              </div>
+
+
+              <button type="button" id="send-gcode-btn" class="btn cmd-button" >
+                Send GCode (⇧⏎)
+              </button>
+            </div>
+
+            <div id="render-area"></div>
+
+          </div>
+
+          <!-- Tab content -- Control-->
+
+          <div id="tab-page-control" class="tabcontent">
+
+            <div id="control-grid">
+              <img id="wcImg" width="320" height="240" style="grid-row: 1/4; grid-column: 1"/>
+
+              <a id="wcLink" target="_blank" href="#" style="grid-row: 5; grid-column: 1">Webcam</a>
+
+              <div style="grid-row: 1; grid-column: 3">
+                <button>+Y</button>
+              </div>
+              <div style="grid-row: 2; grid-column: 2">
+                <button>-X</button>
+              </div>
+              <div style="grid-row: 2; grid-column: 3">
+                <button>🏠</button>
+              </div>
+              <div style="grid-row: 2; grid-column: 4">
+                <button>+X</button>
+              </div>
+              <div style="grid-row: 3; grid-column: 3">
+                <button>-Y</button>
+              </div>
+
+            </div>
+
+          </div>
+
+          <!-- Tab content -- Settings-->
+          <div id="tab-page-gcode-settings" class="col tabcontent">
+            <table>
+              <tr>
+                <th></th>
+                <th colspan="2">Setting</th>
+                <th>Active</th>
+                <th>X</th>
+                <th>Y</th>
+                <th>Z</th>
+                <th></th>
+                <th></th>
+              </tr>
+              <tr>
+                <td><button class ="btn btn-small go_wco_btn" value="g54">Go</button></td>
+                <td>Origin 1</td>
+                <td>(G54)</td>
+                <td class="gcode-origin"><input type="radio" name="gcode-origin"  value="g54" \></td>
+                <td><input type='text' class='gcode-setting' name='g54x' size=9 \></td>
+                <td><input type='text' class='gcode-setting' name='g54y' size=9 \></td>
+                <td><input type='text' class='gcode-setting' name='g54z' size=9 \></td>
+                <td><button class ="btn btn-small set_wco_btn" wco="g54">Set to Current Location</button></td>
+              </tr>
+              <tr>
+                <td><button class ="btn btn-small go_wco_btn" value="g55">Go</button></td>
+                <td>Origin 2</td>
+                <td>(G55)</td>
+                <td class="gcode-origin"><input type="radio" name="gcode-origin"  value="g55" \></td>
+                <td><input type='text' class='gcode-setting' name='g55x' size=9 \></td>
+                <td><input type='text' class='gcode-setting' name='g55y' size=9 \></td>
+                <td><input type='text' class='gcode-setting' name='g55z' size=9 \></td>
+                <td><button class ="btn btn-small set_wco_btn" value="g55">Set to Current Location</button></td>
+                </tr>
+              <tr>
+                <td><button class ="btn btn-small go_wco_btn" value="g56">Go</button></td>
+                <td>Origin 3</td>
+                <td>(G56)</td>
+                <td class="gcode-origin"><input type="radio" name="gcode-origin"  value="g56" \></td>
+                <td><input type='text' class='gcode-setting' name='g56x' size=9 \></td>
+                <td><input type='text' class='gcode-setting' name='g56y' size=9 \></td>
+                <td><input type='text' class='gcode-setting' name='g56z' size=9 \></td>
+                <td><button class ="btn btn-small set_wco_btn" value="g56">Set to Current Location</button></td>
+                </tr>
+              <tr>
+                <td><button class ="btn btn-small go_wco_btn" value="g57">Go</button></td>
+                <td>Origin 4</td>
+                <td>(G57)</td>
+                <td class="gcode-origin"><input type="radio" name="gcode-origin"  value="g57" \></td>
+                <td><input type='text' class='gcode-setting' name='g57x' size=9 \></td>
+                <td><input type='text' class='gcode-setting' name='g57y' size=9 \></td>
+                <td><input type='text' class='gcode-setting' name='g57z' size=9 \></td>
+                <td><button class ="btn btn-small set_wco_btn" value="g57">Set to Current Location</button></td>
+                </tr>
+              <tr>
+                <td><button class ="btn btn-small go_wco_btn" value="g58">Go</button></td>
+                <td>Origin 5</td>
+                <td>(G58)</td>
+                <td class="gcode-origin"><input type="radio" name="gcode-origin"  value="g58" \></td>
+                <td><input type='text' class='gcode-setting' name='g58x' size=9 \></td>
+                <td><input type='text' class='gcode-setting' name='g58y' size=9 \></td>
+                <td><input type='text' class='gcode-setting' name='g58z' size=9 \></td>
+                <td><button class ="btn btn-small set_wco_btn" value="g58">Set to Current Location</button></td>
+                </tr>
+              <tr>
+                <td><button class ="btn btn-small go_wco_btn" value="g59">Go</button></td>
+                <td>Origin 6</td>
+                <td>(G59)</td>
+                <td class="gcode-origin"><input type="radio" name="gcode-origin"  value="g59" \></td>
+                <td><input type='text' class='gcode-setting' name='g59x' size=9 \></td>
+                <td><input type='text' class='gcode-setting' name='g59y' size=9 \></td>
+                <td><input type='text' class='gcode-setting' name='g59z' size=9 \></td>
+                <td><button class ="btn btn-small set_wco_btn" value="g59">Set to Current Location</button></td>
+              </tr>
+              <tr>
+                <td></td>
+                <td>Tool Length Offset</td>
+                <td>(TLO)</td>
+                <td></td>
+                <td><input type='text' class='gcode-setting' name='tlo-len' size=9 \></td>
+                <td></td>
+                <td></td>
+                <td></td>
+              </tr>
+              <tr>
+                <td colspan="8">
+                <div class="row-reverse" style="white-space: nowrap;   justify-content:       space-between;
+                ">
+                  <button type="button" id="btn-commit-gcode-settings" class="btn" >
+                    Commit Changes
+                  </button>
+                  
+                  <p id="gcode-settings-msg">Changes lost if tab closed without committing.</p>
+    
+                  <button type="button" id="btn-revert-gcode-settings" class="btn btn-red" >
+                    Revert
+                  </button>
+                </div>
+                </td>
+              </tr>
+              <tr>
+                <td colspan="8">
+                  <hr />
+                </td>
+              </tr>
+              <tr>
+                <td><button class ="btn btn-small go_safe_btn">Go</button></td>
+                <td>Safe Location</td>
+                <td>(G28)</td>
+                <td></td>
+                <td><input type='text' class='gcode-setting' name='g28x' readonly='readonly' size=9\></td>
+                <td><input type='text' class='gcode-setting' name='g28y' readonly='readonly' size=9\></td>
+                <td><input type='text' class='gcode-setting' name='g28z' readonly='readonly' size=9\></td>
+                <td><button class ="btn btn-small set_safe_btn" value="g28">Set to Current Location</button></td>
+                </tr>
+              <tr>
+                <td><button class ="btn btn-small go_save_btn">Go</button></td>
+                <td>Saved Location</td>
+                <td>(G30)</td>
+                <td></td>
+                <td><input type='text' class='gcode-setting' name='g30x' readonly='readonly' size=9 \></td>
+                <td><input type='text' class='gcode-setting' name='g30y' readonly='readonly' size=9 \></td>
+                <td><input type='text' class='gcode-setting' name='g30z' readonly='readonly' size=9 \></td>
+                <td><button class ="btn btn-small set_save_btn" value="g30">Set to Current Location</button></td>
+                </tr>
+              <tr>
+                <td><button class ="btn btn-small go_home_btn">Go</button></td>
+                <td>Home Location</td>
+                <td>(G92)</td>
+                <td></td>
+                <td><input type='text' class='gcode-setting' name='g92x' readonly='readonly' size=9 \></td>
+                <td><input type='text' class='gcode-setting' name='g92y' readonly='readonly' size=9 \></td>
+                <td><input type='text' class='gcode-setting' name='g92z' readonly='readonly' size=9 \></td>
+                <td><button class ="btn btn-small set_wco_btn" value="g92">Set to Current Location</button></td>
+              </tr>
+              <tr>
+                <td><button class ="btn btn-small do_probe_btn">Probe</button></td>
+                <td>Probe</td>
+                <td>(PRB)</td>
+                <td></td>
+                <td><input type='text' class='gcode-setting' name='prbx' readonly='readonly' size=9 \></td>
+                <td><input type='text' class='gcode-setting' name='prby' readonly='readonly' size=9 \></td>
+                <td><input type='text' class='gcode-setting' name='prbz' readonly='readonly' size=9 \></td>
+                <td>Offset: <input type='text' class='gcode-setting' name='prbo' readonly='readonly' size=9 \></td>
+              </tr>
+
+            </table>
+           </div>
+
+          <!-- Tab content -- GRBL Settings-->
+          <div id="tab-page-grbl-settings" class="col tabcontent">
+            <table id="table-grbl-settings">
+              <!-- Content set dynamically in client.js -->
+            </table>
+          </div>
+        </div>
+      </div>
+   </div>
+  </body>
+</html>
