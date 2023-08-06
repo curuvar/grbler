@@ -14,8 +14,8 @@
     OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
     This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU Affero General Public License as published by
-    the Free Software Foundation, either version 3 of the License.
+    it under the terms of the GNU Affero General Public License version 3.0 as
+    published by the Free Software Foundation.
 
     This program is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -36,10 +36,10 @@ const OS_WINDOWS         = 2;
 const OS_LINUX           = 3;
 const OS_UNIX            = 4;
 
-const SETTING_NUMBER     = 0;
-const SETTING_BOOL       = 1;
-const SETTING_MASK       = 2;
-const SETTING_RO         = 3
+const SETTING_NUMBER     = 0;  // Display a number
+const SETTING_BOOL       = 1;  // Display a check box
+const SETTING_MASK       = 2;  // Display X, Y, and Z check boxes
+const SETTING_RO         = 3;  // Display a non-editable number   
 
 
 const GRBL_SETTING       = {
@@ -98,7 +98,6 @@ let   gQueueState          = STOPPED;
 let   gValidFileTypes      = '.gcode,text/x.gcode,text/x-gcode';
 
 let   gDisplayIsInches     = false;
-let   gHasLimitSwitch      = true;
 
 let   gCurrentMachineX    = 0;
 let   gCurrentMachineY    = 0;
@@ -604,16 +603,6 @@ $(document).ready( () =>
 			console.log( 'add html:', buttonHTML );
 
 			$('#user-buttons').html( buttonHTML );
-
-			// If no limit switches change "Auto Home" button to "Unlock" ($X)
-
-			gHasLimitSwitch = (inData.hasLimitSwitch == '1');
-
-			if (!gHasLimitSwitch)
-			{
-				$('#auto-home-btn').html( 'Unlock' );
-				$('#auto-home-btn').prop( 'title', 'Send "$X" to unlock machine.' );
-			}
     }
   } );
 
@@ -659,11 +648,16 @@ $(document).ready( () =>
 		}
 		else if (theStatus == 'Run')
 		{
-			statusValue.css( "background-color","blue" );
+			statusValue.css( "background-color","forestgreen" );
 			statusValue.css( "color","white" );
 			theStatus = 'Running';
 		}
-		else if (gQueueState == PAUSED)
+		else if (theStatus == 'Jogging')
+		{
+			statusValue.css( "background-color","blue" );
+			statusValue.css( "color","white" );
+		}
+    else if (gQueueState == PAUSED)
 		{
 			statusValue.css( "background-color","yellow" );
 			statusValue.css( "color","black" );
@@ -772,23 +766,23 @@ $(document).ready( () =>
 
 		switch (inData.setting)
 		{
+		case '$22':  // Homing Cycle Enable
+		  if (inData.value == 1)
+			{
+				$('#auto-home-btn').html( 'Auto Home' );
+				$('#auto-home-btn').prop( 'title', 'Send "$H" to run homing cycle.' );
+			}
+			else
+			{
+				$('#auto-home-btn').html( 'Unlock' );
+				$('#auto-home-btn').prop( 'title', 'Send "$X" to unlock machine.' );
+			}
+
 		case '$32':  // Laser mode
 			console.debug( 'Update choose-mode to ' + inData.value );
 
 			$('#choose-mode').val( inData.value );
 		  break;
-
-		case '$100':  // X steps per mm
-			// TODO -- tell jogger
-			break;
-
-		case '$101':  // Y steps per mm
-			// TODO -- tell jogger
-			break;
-		
-		case '$102':  // Z steps per mm
-			// TODO -- tell jogger
-			break;
 
 		case '$130':  // X Max Travel
 			gMaxTravelX = Number( inData.value );
@@ -1037,7 +1031,7 @@ $(document).ready( () =>
 
 	$('#auto-home-btn').on( 'click', () =>
 	{
-		gSocket.emit( 'send-to-grbl', { line: gHasLimitSwitch ? "$H" : "$X" } );
+		gSocket.emit( 'do-auto-home', {} );
 		$('#status-value').html( 'Homing' );
 	} );
 
@@ -1094,6 +1088,39 @@ $(document).ready( () =>
 
     input.click();
   } );
+
+	// ----------------------------------------------------------------------------
+	//  On btn-jog-x
+	// ----------------------------------------------------------------------------
+
+	$('.btn-jog-x').on( 'click', ( inEvent ) =>
+	{
+		let val = inEvent.target.value;
+
+		gSocket.emit( 'jog-x', val );
+	} );
+
+	// ----------------------------------------------------------------------------
+	//  On btn-jog-y
+	// ----------------------------------------------------------------------------
+
+	$('.btn-jog-y').on( 'click', ( inEvent ) =>
+	{
+		let val = inEvent.target.value;
+
+		gSocket.emit( 'jog-y', { line: val } );
+	} );
+
+	// ----------------------------------------------------------------------------
+	//  On btn-jog-z
+	// ----------------------------------------------------------------------------
+
+	$('.btn-jog-z').on( 'click', ( inEvent ) =>
+	{
+		let val = inEvent.target.value;
+
+		gSocket.emit( 'jog-z', { line: val } );
+	} );
 
 	// ----------------------------------------------------------------------------
 	//  On choose-mode change
