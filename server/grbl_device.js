@@ -1,6 +1,6 @@
 //     Grbler - a Node.js based CNC controller for GRBL
 //
-//     Copyright © 2022 Craig Altenburg
+//     Copyright © 2022 - 2023 Craig Altenburg
 //
 //     Portions Copyright © 2021 Andrew Hodel
 //
@@ -13,8 +13,8 @@
 //     OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 //
 //     This program is free software: you can redistribute it and/or modify
-//     it under the terms of the GNU Affero General Public License as published by
-//     the Free Software Foundation, either version 3 of the License.
+//     it under the terms of the GNU Affero General Public License version 3.0 as
+//     published by the Free Software Foundation.
 //
 //     This program is distributed in the hope that it will be useful,
 //     but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -69,8 +69,19 @@ export class GrblDevice
   #wcoX;               // Last received Work coordinate offset X
   #wcoY;               // Last received Work coordinate offset Y
   #wcoZ;               // Last received Work coordinate offset Z
+  #stepsX;             // Steps per mm X
+  #stepsY;             // Steps per mm Y
+  #stepsZ;             // Steps per mm Z
+  #maxX;               // Maximum movement mm X
+  #maxY;               // Maximum movement mm Y
+  #maxZ;               // Maximum movement mm Z
   #displayIsInches;    // If display values are in inches.
-  #jogger;
+  #homingEnabled;      // Set to 1 if homing enabled
+  #isJogging;          // Set true in jogging in progress. 
+  #joggingTargetX;     // Jogging target in machine coordinates
+  #joggingTargetY;     // Jogging target in machine coordinates
+  #joggingTargetZ;     // Jogging target in machine coordinates
+  #jogger;             // The jogger instance.
 
   // ==========================================================================
   //  Static Fields
@@ -130,17 +141,17 @@ export class GrblDevice
 
   static connect( inCallback, inParameter )
   {
-    GrblDevice.#device.doCommands( '$$\n$#' );
-
     const theClient = {};
     theClient.callback  = inCallback;
     theClient.parameter = inParameter;
 
-    GrblDevice.#device.#clients.push( theClient );
+    const theDevice = GrblDevice.#device
 
-    // aDevice.#callbackMachineStatus();
+    theDevice.#clients.push( theClient );
 
-    return GrblDevice.#device;
+    theDevice.#doCommands( '$G\n$$\n$#' );
+
+    return theDevice;
   }
 
   // ----------------------------------------------------------------------------
@@ -149,15 +160,43 @@ export class GrblDevice
 
   static joggerCallback( inCommand, inData )
   {
+    const theDevice = GrblDevice.#device;
+
+    console.log( 'joggerCallback', inCommand, inData );
+
     switch (inCommand)
     {
     case 'change-coords':
-      GrblDevice.#device.doCommands( inData );
-      GrblDevice.#device.requestParserState();
+      theDevice.#doCommands( 'G' + (inData + 53) );
+      theDevice.requestParserState();
       break;
 
     case 'auto-home':
-      GrblDevice.#device.doCommands( '$H' );  // TODO -- make sure we have limit switches of $X
+      theDevice.autoHome();
+      break;
+
+    case 'jog-x':
+      theDevice.jogX( inData );
+      break;
+
+    case 'jog-y':
+      theDevice.jogY( inData );
+      break;
+
+    case 'jog-z':
+      theDevice.jogZ( inData );
+      break;
+
+    case 'update-x':
+      theDevice.queueCommands( 'G10L20P' + inData + 'X0' );
+      break;
+
+    case 'update-y':
+      theDevice.queueCommands( 'G10L20P' + inData + 'Y0' );
+      break;
+      
+    case 'update-z':
+      theDevice.queueCommands( 'G10L20P' + inData + 'Z0' );
       break;
     }
   }
@@ -187,6 +226,7 @@ export class GrblDevice
     this.#wcoY               = 0;
     this.#wcoZ               = 0;
     this.#displayIsInches    = false;
+    this.#isJogging          = false;
 
     this.#serialPort = new SerialPort( config.serialPort, 
                                        { baudRate: config.serialBaudRate } );
@@ -218,9 +258,6 @@ export class GrblDevice
     if (config.useJogger)
     {
       jogger.initialize( GrblDevice.joggerCallback );
-
-      this.doCommands( '$#\n$$\n$G' );
-
     }
 
     console.log( 'GrblDevice constructor complete.' );
@@ -234,27 +271,6 @@ export class GrblDevice
   disconnect()
   {
     // Currently does nothing but could clean up if no one is using the port.
-  }
-
-  // --------------------------------------------------------------------------
-  // Public Method doCommands
-  // --------------------------------------------------------------------------
-  //  This function accepts a string with one or more commands (separated by
-  //  new-line characters) and sends them to the connected device immediately.
-
-  doCommands( inCommands )
-  {
-    const theCommands = inCommands.split( "\n" );
-
-    theCommands.forEach( ( aCommand ) =>
-    {
-      this.#serialPort.write( aCommand + "\n" );
-
-      // Log the command to the console
-
-      this.#callback( CONSOLE_DISPLAY, { mode:   'immediate', 
-                                         message: aCommand } );
-    } );
   }
 
   // --------------------------------------------------------------------------
@@ -329,14 +345,20 @@ export class GrblDevice
   }
 
   // --------------------------------------------------------------------------
+  // Public Method autoHome
+  // --------------------------------------------------------------------------
+
+  autoHome()
+  {
+    this.#doCommands(  this.#homingEnabled ? "$H" : "$X"  );
+  }
+  // --------------------------------------------------------------------------
   // Public Method requestParserState
   // --------------------------------------------------------------------------
 
   requestParserState()
   {
-    // --- TODO --- Make sure this doesn't hose the queue processing
-
-    this.doCommands( '$G' );
+    this.#doCommands( '$G' );
   }
 
   // --------------------------------------------------------------------------
@@ -345,9 +367,7 @@ export class GrblDevice
 
   requestGCodeParams()
   {
-    // --- TODO --- Make sure this doesn't hose the queue processing
-
-    this.doCommands( '$#' );
+    this.#doCommands( '$#' );
   }
 
   // --------------------------------------------------------------------------
@@ -356,9 +376,101 @@ export class GrblDevice
 
   requestGrblSettings()
   {
-    // --- TODO --- Make sure this doesn't hose the queue processing
+    this.#doCommands( '$$' );
+  }
 
-    this.doCommands( '$$' );
+  // --------------------------------------------------------------------------
+  // Public Method jogX
+  // --------------------------------------------------------------------------
+
+  jogX( inDistance )
+  {
+    if (!this.#isJogging)
+    {
+      this.#isJogging = true;
+      this.#joggingTargetX = this.#positionX;
+      this.#joggingTargetY = this.#positionY;
+      this.#joggingTargetZ = this.#positionZ;
+    }
+
+    console.log( 'jogX inDistance', inDistance );
+    console.log( '     target    ', this.#joggingTargetX );
+    console.log( '     steps     ', this.#stepsX );
+
+    let jogTo = this.#joggingTargetX + (inDistance / this.#stepsX);
+
+    if (jogTo > 0)
+    {
+      jogTo = 0;
+    }
+    else if (jogTo < -this.#maxX)
+    {
+      jogTo = -this.#maxX;
+    }
+
+    if (this.#displayIsInches) jogTo /= 25.4;
+
+    this.queueCommands( '$J=F1000G53X' + jogTo );
+  }
+
+  // --------------------------------------------------------------------------
+  // Public Method jogY
+  // --------------------------------------------------------------------------
+
+  jogY( inDistance )
+  {
+    if (!this.#isJogging)
+    {
+      this.#isJogging = true;
+      this.#joggingTargetX = this.#positionX;
+      this.#joggingTargetY = this.#positionY;
+      this.#joggingTargetZ = this.#positionZ;
+    }
+
+    let jogTo = this.#joggingTargetY + (inDistance / this.#stepsY);
+
+    if (jogTo > 0)
+    {
+      jogTo = 0;
+    }
+    else if (jogTo < -this.#maxX)
+    {
+      jogTo = -this.#maxX;
+    }
+
+    if (this.#displayIsInches) jogTo /= 25.4;
+
+    this.queueCommands( '$J=F1000G53Y' + jogTo );
+}
+
+  // --------------------------------------------------------------------------
+  // Public Method jogZ
+  // --------------------------------------------------------------------------
+
+  jogZ( inDistance )
+  {
+    if (!this.#isJogging)
+    {
+      this.#isJogging = true;
+      this.#joggingTargetX = this.#positionX;
+      this.#joggingTargetY = this.#positionY;
+      this.#joggingTargetZ = this.#positionZ;
+    }
+
+    let jogTo = this.#joggingTargetZ + (inDistance / this.#stepsZ);
+
+    if (jogTo > 0)
+    {
+      jogTo = 0;
+    }
+    else if (jogTo < -this.#maxZ)
+    {
+      jogTo = -this.#maxZ;
+    }
+
+    if (this.#displayIsInches) jogTo /= 25.4;
+
+    this.queueCommands( '$J=F1000G53Z' + jogTo );
   }
 
   // --------------------------------------------------------------------------
@@ -442,9 +554,6 @@ export class GrblDevice
         case 'g57':  jogger.updateOrigin( 4 );         break; 
         case 'g58':  jogger.updateOrigin( 5 );         break; 
         case 'g59':  jogger.updateOrigin( 6 );         break; 
-        case '$100': jogger.updateStepsX( anItem[1] ); break;
-        case '$101': jogger.updateStepsY( anItem[1] ); break;
-        case '$102': jogger.updateStepsZ( anItem[1] ); break;
       }
     }
 
@@ -491,11 +600,17 @@ export class GrblDevice
 
       // Save the position
 
+      if (this.#isJogging  &&  t[0] != 'Jog')
+      {
+        this.#isJogging = false;
+      }
+
       this.#machineStatus = t[0]
       this.#positionX     = parseFloat( t[2] );
       this.#positionY     = parseFloat( t[3] );
       this.#positionZ     = parseFloat( t[4] );
   
+
       // If we were passed Work Coordinate Offsets, save as floats.
 
       if (t[8] == 'WCO')
@@ -537,9 +652,13 @@ export class GrblDevice
       {
         switch (match[1])
         {
-          case '$100': jogger.updateStepsX( match[2] ); break;
-          case '$101': jogger.updateStepsY( match[2] ); break;
-          case '$102': jogger.updateStepsZ( match[2] ); break;
+          case '$22':  this.#homingEnabled = match[2]; break;
+          case '$100': this.#stepsX        = match[2]; break;
+          case '$101': this.#stepsY        = match[2]; break;
+          case '$102': this.#stepsZ        = match[2]; break;
+          case '$130': this.#maxX          = match[2]; break;
+          case '$131': this.#maxY          = match[2]; break;
+          case '$132': this.#maxZ          = match[2]; break;
         }
       }                                                 
 
@@ -657,6 +776,22 @@ export class GrblDevice
       return;
     }
 
+
+    // --- Handle unlock request string --------
+    // This data will start with a '[MSG:' string and
+    // ends with 'unlock]'.
+
+    match = inData.match( /^\[MSG:.*unlock]$/ );
+
+    if (match != null)
+    {
+      console.debug( "<- " + inData + " ; unlock request" );
+
+      this.#doCommands( '$G\n$$\n$#' );
+
+      return;
+    }
+
     console.debug( "<- " + inData );
 
     this.#callback( CONSOLE_DISPLAY, { mode:    'response', 
@@ -737,13 +872,41 @@ export class GrblDevice
       
     if (config.useJogger)
     {
+      let isLocked =    this.#machineStatus != 'Jog'
+                     && (   this.#queue.length > 0
+                         || this.#machineStatus != 'Idle');
+    
       jogger.updateMachineStatus( this.#positionX, 
                                   this.#positionY, 
                                   this.#positionZ,
                                   this.#displayIsInches,
-                                  this.#machineStatus,
-                                  this.#queue.length );
+                                  isLocked );
     }                             
   }
+
+  // --------------------------------------------------------------------------
+  // Private Method doCommands
+  // --------------------------------------------------------------------------
+  //  This function accepts a string with one or more commands (separated by
+  //  new-line characters) and sends them to the connected device immediately.
+  //
+  //  This method should only be used to request status updates so that
+  //  it does not interfere with queue processing.
+
+  #doCommands( inCommands )
+  {
+    const theCommands = inCommands.split( "\n" );
+
+    theCommands.forEach( ( aCommand ) =>
+    {
+      this.#serialPort.write( aCommand + "\n" );
+
+      // Log the command to the console
+
+      this.#callback( CONSOLE_DISPLAY, { mode:   'immediate', 
+                                         message: aCommand } );
+    } );
+  }
+
 }
 

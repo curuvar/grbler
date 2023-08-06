@@ -1,6 +1,6 @@
 //     Grbler - a Node.js based CNC controller for GRBL
 //
-//     Copyright © 2022 Craig Altenburg
+//     Copyright © 2022 - 2023 Craig Altenburg
 //
 //     Portions Copyright © 2021 Andrew Hodel
 //
@@ -13,8 +13,8 @@
 //     OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 //
 //     This program is free software: you can redistribute it and/or modify
-//     it under the terms of the GNU Affero General Public License as published by
-//     the Free Software Foundation, either version 3 of the License.
+//     it under the terms of the GNU Affero General Public License version 3.0 as
+//     published by the Free Software Foundation.
 //
 //     This program is distributed in the hope that it will be useful,
 //     but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -68,16 +68,23 @@ function setUpSocket( inSocket )
 
   gGrblDevice.connect( deviceCallback, inSocket );
 
-  // --- doReset ---------------------------------------------
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  //  Handlers for messages from client.
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+  // --- do-reset --------------------------------------------
 
   inSocket.on( 'do-reset', () =>
   {
     gDevice.reset();
   } );
 
-  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-  //  Handlers for messages from client.
-  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  // --- do-auto-home -----------------------------------------
+
+  inSocket.on( 'do-auto-home', () =>
+  {
+    gDevice.autoHome();
+  } );
 
   // --- queue-to-grbl ----------------------------------------
   // Add data to the queue to send to GRBL
@@ -85,14 +92,6 @@ function setUpSocket( inSocket )
   inSocket.on( 'queue-to-grbl', (inData) =>
   {
     gDevice.queueCommands( inData.line );
-  } );
-
-  // --- send-to-grbl ----------------------------------------
-  // Send to GRBl immediately.
-
-  inSocket.on( 'send-to-grbl', (inData) =>
-  {
-    gDevice.doCommands( inData.line );
   } );
 
   // --- clear-queue-item -----------------------------------------
@@ -130,6 +129,27 @@ function setUpSocket( inSocket )
   inSocket.on( 'request-grbl-settings', () =>
   {
     gDevice.requestGrblSettings();
+  } );
+
+  // --- jog-x ---------------------------------------------
+
+  inSocket.on( 'jog-x', ( value ) =>
+  {
+    gDevice.jogX( value );
+  } );
+
+  // --- jog-y ---------------------------------------------
+
+  inSocket.on( 'jog-y', ( value ) =>
+  {
+    gDevice.jogY( value );
+  } );
+
+  // --- jog-z ---------------------------------------------
+
+  inSocket.on( 'jog-z', ( value ) =>
+  {
+    gDevice.jogZ( value );
   } );
 
   // --- disconnect ------------------------------------------

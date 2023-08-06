@@ -3,6 +3,11 @@
   "version":     "0.5",
   "description": "Node.js based gcode sender for grbl",
   "license":     "AGPL-3.0-only",
+  "keywords":    [ "GRBL", "GCode", "G-Code" ],
+  "repository":  "github:curuvar/grbler",
+  "bugs":        {
+                   "url":  "https://github.com/curuvar/grbler/issues"    
+                 },
   "type":        "module",
   "dependencies": 
   {

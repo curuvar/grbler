@@ -1,8 +1,6 @@
 //     Grbler - a Node.js based CNC controller for GRBL
 //
-//     Copyright © 2022 Craig Altenburg
-//
-//     Portions Copyright © 2021 Andrew Hodel
+//     Copyright © 2023 Craig Altenburg
 //
 //     THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
 //     WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
@@ -13,8 +11,8 @@
 //     OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 //
 //     This program is free software: you can redistribute it and/or modify
-//     it under the terms of the GNU Affero General Public License as published by
-//     the Free Software Foundation, either version 3 of the License.
+//     it under the terms of the GNU Affero General Public License version 3.0 as
+//     published by the Free Software Foundation.
 //
 //     This program is distributed in the hope that it will be useful,
 //     but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -23,6 +21,67 @@
 //
 //     You should have received a copy of the GNU Affero General Public License
 //     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+// ============================================================================
+//  Jogger API
+// ============================================================================
+//
+// Jogger's initialize function must be passed a callback function.  This
+// callback function must take two parameters: "command" and "data".  When
+// called the "command" will be a string.  The "data" depends on the command
+// passed.
+//
+// The defined commands are:
+//
+//     change-coords   - Change active coordinate system.
+//                       Data parameter must be number 1 thru 6 (equivalent 
+//                       to G54 through G59).
+//
+//     auto-home        - Perform and auto-home (or reset if no end-stops).
+//                        Data parameter is ignored.
+//
+//     jog-x            - Jog X coordinate.
+//                        Data is an integer interpreted as smallest move unit.
+//
+//     jog-y            - Jog Y coordinate.
+//                        Data is an integer interpreted as smallest move unit.
+//
+//     jog-z            - Jog Z coordinate.
+//                        Data is an integer interpreted as smallest move unit.
+//
+//     update-x         - Update indicated coordinate system's X to current position.
+//                        Data parameter must be number 1 thru 6.
+//
+//     update-y         - Update indicated coordinate system's Y to current position.
+//                        Data parameter must be number 1 thru 6.
+//
+//     update-z         - Update indicated coordinate system's Z to current position.
+//                        Data parameter must be number 1 thru 6.
+//
+// Jogger itself defines a number of functions that will be called as
+// appropriate.
+//
+//  updateOrigin  -- called when Grbler user changes coordinate system.
+//
+//      Parameters:
+//           inOrigin  -- a selected origin number 1 through 6.
+//
+//  updateOffsets -- periodically passed the offsets between the machine 
+//                   coordinates and the selected origin's coordinates.
+//
+//      Parameters:
+//          inDeltaX   -- the X coordinates offset.
+//          inDeltaY   -- the Y coordinates offset.
+//          inDeltaZ   -- the Z coordinates offset.
+//
+//  updateMachineStatus -- called by Grbler when changes to status detected.
+//
+//      Parameters:
+//          inX        -- the X machine coordinates.
+//          inY        -- the Y machine coordinates.
+//          inZ        -- the Z machine coordinates.
+//          inIsInches -- Set true if coordinates are inches, of false for mm.
+//          inLocked   -- True if Jogger must not change position.
 
 // ============================================================================
 //  Requirements
@@ -46,7 +105,7 @@ const gJoggerPipe = new SerialPort.parsers.Readline( { delimiter: '\n' } );
 var   gCurrentPage     = 0;
 var   gSavedPage       = 0;
 
-var   gX               = 0.0;
+var   gX               = 0.0;  // Machine Coordinates
 var   gY               = 0.0;
 var   gZ               = 0.0;
 
@@ -54,15 +113,11 @@ var   gDeltaX          = 0.0;
 var   gDeltaY          = 0.0;
 var   gDeltaZ          = 0.0;
 
-var   gStepsX          = 0.0;
-var   gStepsY          = 0.0;
-var   gStepsZ          = 0.0;
-
 var   gPrecision       = 3;
 
 var   gOrigin          = 1;
 
-var   gDisplayIsInches = false;
+var   gIsInches        = false;
 
 var   gLocked          = true;
 
@@ -117,15 +172,10 @@ export function initialize( inCallback )
         case 'SC': // TODO lock in selected value
           switch (gCurrentPage)
           {
-          // TODO - Update current coordinate by 'value'
-          case 1: // Jog X
-          case 2: // Jog Y
-          case 3: // Jog Z
-            break;
-          
-          case 4: // Update Home
-            gCallback( 'change-coords', 'G' + (53 + gOrigin) );
-            break;
+          case 1:  gCallback( 'update-x',      gOrigin ); break;
+          case 2:  gCallback( 'update-y',      gOrigin ); break;
+          case 3:  gCallback( 'update-z',      gOrigin ); break;
+          case 4:  gCallback( 'change-coords', gOrigin ); break;
           }
           break;          
 
@@ -150,13 +200,12 @@ export function initialize( inCallback )
           }
           break;
 
-        case 'Q1': // TODO - Update current coordinate by 'value'
+        case 'Q1':
           switch (gCurrentPage)
           {
-          case 1: // Jog X
-          case 2: // Jog Y
-          case 3: // Jog Z
-            break;
+          case 1: gCallback( 'jog-x', value ); break;
+          case 2: gCallback( 'jog-y', value ); break;
+          case 3: gCallback( 'jog-z', value ); break;
           
           case 4: // Update Home
             gOrigin = ((gOrigin + value - 1) % 6 + 6) % 6 + 1;
@@ -167,13 +216,12 @@ export function initialize( inCallback )
           
           break;
           
-        case 'Q2': // TODO - Update current coordinate by '100 * value'
+        case 'Q2':
           switch (gCurrentPage)
           {
-          case 1: // Jog X
-          case 2: // Jog Y
-          case 3: // Jog Z
-            break;
+          case 1: gCallback( 'jog-x', 100 * value ); break;
+          case 2: gCallback( 'jog-y', 100 * value ); break;
+          case 3: gCallback( 'jog-z', 100 * value ); break;
           
           case 4: // Update Home
           // (a%b + b)%b to make sure result is positive
@@ -198,12 +246,12 @@ export function initialize( inCallback )
 }
 
 // ----------------------------------------------------------------------------
-//  Function updateDisplay
+//  Private Function updateDisplay
 // ----------------------------------------------------------------------------
 
 function updateDisplay()
 {
-  const precision = gDisplayIsInches ? 4 : 3;
+  const precision = gIsInches ? 4 : 3;
 
   const x = (gX - gDeltaX).toFixed( precision );
   const y = (gY - gDeltaY).toFixed( precision );
@@ -242,13 +290,18 @@ function updateDisplay()
   if (str != "")
   {
     gJoggerPort.write( str );
-    console.log( "set to jogger->", str );
+    console.log( "sent to jogger->", str );
   }
 }
 
 // ----------------------------------------------------------------------------
 //  Function updateOrigin
 // ----------------------------------------------------------------------------
+//  Called when Grbler user changes coordinate system.
+//
+//  Parameters:
+//      inOrigin  -- a selected origin number 1 through 6.
+//
 
 export function updateOrigin( inOrigin )
 {
@@ -262,6 +315,14 @@ export function updateOrigin( inOrigin )
 // ----------------------------------------------------------------------------
 //  Function updateOffsets
 // ----------------------------------------------------------------------------
+//  Passed the offsets between the machine coordinates and the selected
+//  origin's coordinates.
+//
+//  Parameters:
+//      inDeltaX  -- the X coordinates offset.
+//      inDeltaY  -- the Y coordinates offset.
+//      inDeltaZ  -- the Z coordinates offset.
+//
 
 export function updateOffsets( inDeltaX, inDeltaY, inDeltaZ )
 {
@@ -294,13 +355,21 @@ export function updateOffsets( inDeltaX, inDeltaY, inDeltaZ )
 // ----------------------------------------------------------------------------
 //  Function updateMachineStatus
 // ----------------------------------------------------------------------------
+//  Passed the offsets between the machine coordinates and the selected
+//  origin's coordinates.
+//
+//  Parameters:
+//      inX        -- the X machine coordinates.
+//      inY        -- the Y machine coordinates.
+//      inZ        -- the Z machine coordinates.
+//      inIsInches -- Set true if coordinates are inches, of false for mm.
+//      inLocked   -- True if Jogger control of Grbler is disabled.
 
 export function updateMachineStatus( inX, 
                                      inY, 
                                      inZ, 
-                                     inDisplayIsInches,
-                                     inStatus,
-                                     inQueueLength )
+                                     inIsInches,
+                                     isLocked )
 {
   let changed = false;
 
@@ -322,64 +391,40 @@ export function updateMachineStatus( inX,
     gZ = inZ;
   }
 
-  if (inDisplayIsInches != gDisplayIsInches)
+  if (inIsInches != gIsInches)
   {
-    changed    = true;
-    gDisplayIsInches = inDisplayIsInches;
+    changed   = true;
+    gIsInches = inIsInches;
   }
 
-  gLocked =    inQueueLength != 0
-            || inStatus      != 'Idle';
-
-  if (gLocked)
+  if (isLocked)
   {
     gJoggerPort.write( "\u000E" );
-
-    if (gCurrentPage != 0) changed = true;
-
-    gSavedPage = gCurrentPage;
-    gCurrentPage = 0;
   }
   else
   {
     gJoggerPort.write( "\u000F" );
+  }
 
-    if (gSavedPage != 0)
+  if (isLocked != gLocked)
+  {
+    gLocked = isLocked;
+    
+    if (isLocked)
+    {
+      gSavedPage   = gCurrentPage;
+      gCurrentPage = 0;
+    }
+    else
     {
       gCurrentPage = gSavedPage;
-      changed = true;
     }
+
+    changed = true;
   }
 
   if (changed)
   {
     updateDisplay();
   }
-}
-
-// ----------------------------------------------------------------------------
-//  Function updateStepsX
-// ----------------------------------------------------------------------------
-
-export function updateStepsX( inSteps )
-{
-  gStepsX = inSteps;
-}
-
-// ----------------------------------------------------------------------------
-//  Function updateStepsY
-// ----------------------------------------------------------------------------
-
-export function updateStepsY( inSteps )
-{
-  gStepsY = inSteps;
-}
-
-// ----------------------------------------------------------------------------
-//  Function updateStepsZ
-// ----------------------------------------------------------------------------
-
-export function updateStepsZ( inSteps )
-{
-  gStepsZ = inSteps;
 }

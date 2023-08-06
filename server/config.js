@@ -1,6 +1,6 @@
 //     Grbler - a Node.js based CNC controller for GRBL
 //
-//     Copyright © 2022 Craig Altenburg
+//     Copyright © 2022 - 2023 Craig Altenburg
 //
 //     Portions Copyright © 2021 Andrew Hodel
 //
@@ -13,8 +13,8 @@
 //     OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 //
 //     This program is free software: you can redistribute it and/or modify
-//     it under the terms of the GNU Affero General Public License as published by
-//     the Free Software Foundation, either version 3 of the License.
+//     it under the terms of the GNU Affero General Public License version 3.0 as
+//     published by the Free Software Foundation.
 //
 //     This program is distributed in the hope that it will be useful,
 //     but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -37,8 +37,6 @@ config.webPort        = 8000;           // Web port that Grbler listens to.
 
 config.serialPort     = "/dev/ttyUSB0"; // Serial Port for GRBL device.
 config.serialBaudRate = 115200;         // Baud rate used to connect to GRBL device.
-
-config.hasLimitSwitch = true;           // Machine has limit switches.
 
 // ----------------------------------------------------------------------------
 //  Jogger Configuration
